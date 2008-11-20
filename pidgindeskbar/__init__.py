@@ -1,8 +1,9 @@
 import logging
-LOGGER = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG,
-        filename="/tmp/pidgin_deskbar.log",
-        filemode='a')
+logger = logging.getLogger("pidginDeskbar")
+logger.setLevel(logging.DEBUG)
+
+file = logging.FileHandler('/tmp/pidgin_deskbar', 'a')
+logger.addHandler(file)
 
 __all__ = [ "buddy", "contact", "pidgin_blist_action", "pidgin_blist_match",
         "pidgin_blist_module", "pidgin" ]

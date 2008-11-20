@@ -9,14 +9,13 @@ from .pidgin import Pidgin
 class Contact(object):
     def __init__(self, element):
         assert element != None
-        self.element = element
         self.buddies = []
         self.contact = None
-        self._make_buddies()
+        self._make_buddies(element)
         assert len(self.buddies) > 0
 
-    def _make_buddies(self):
-        for buddy in self.element.getElementsByTagName("buddy"):
+    def _make_buddies(self, element):
+        for buddy in element.getElementsByTagName("buddy"):
             self.buddies.append(Buddy(buddy))
 
         if (self.contact == None and len(self.buddies) > 0 and

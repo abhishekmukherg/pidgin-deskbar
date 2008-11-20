@@ -8,9 +8,13 @@ import dbus
 import subprocess
 from time import sleep
 
+import logging
+LOGGER = logging.getLogger("pidginDeskbar")
+
 DEBUG = True
 
 PURPLE_CONV_TYPE_IM = 1
+PIDGIN = None
 
 class Pidgin(object):
     """
@@ -22,15 +26,22 @@ class Pidgin(object):
         returns a dbus connection to pidgin or None if one is not available. If
         force_open is True, we will create an instance
         """
-        pidgin = Pidgin.service()
-        if pidgin == None and force_open:
+        global PIDGIN
+
+        if PIDGIN != None:
+            return PIDGIN
+
+        PIDGIN = Pidgin.service()
+        if PIDGIN == None and force_open:
             Pidgin.start()
             i = 0
-            while pidgin == None and i < 5:
+            while PIDGIN == None and i < 5:
                 sleep(i)
-                pidgin = Pidgin.service()
-            assert pidgin != None, "Could not bring up pidgin after 10 seconds"
-        return pidgin
+                PIDGIN = Pidgin.service()
+                break
+            else:
+                assert False, "Could not bring up pidgin after 10 seconds"
+        return PIDGIN
 
     @staticmethod
     def service():
@@ -54,4 +65,5 @@ class Pidgin(object):
         """
         Start a pidgin instance
         """
+        LOGGER.debug("Starting pidgin")
         subprocess.Popen(["pidgin"])

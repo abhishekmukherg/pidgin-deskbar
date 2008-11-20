@@ -8,6 +8,9 @@ from gettext import gettext as _
 from .pidgin_blist_match import PidginBlistMatch
 from .contact import Contact
 
+import logging
+LOGGER = logging.getLogger("pidginDeskbar")
+
 BUDDY_LIST_FILE = os.path.expanduser(os.path.join('~', '.purple', 'blist.xml'))
 
 class PidginBlistModule(deskbar.interfaces.Module):
@@ -19,7 +22,11 @@ class PidginBlistModule(deskbar.interfaces.Module):
     def initialize(self):
         blist = xml.dom.minidom.parse(BUDDY_LIST_FILE)
         raw_contacts = blist.getElementsByTagName("contact")
-        self.contacts = [Contact(contact) for contact in raw_contacts]
+        LOGGER.info("foo")
+        try:
+            self.contacts = [Contact(contact) for contact in raw_contacts]
+        except dbus.exceptions.DBusException, e:
+            LOGGER.exception(e)
 
     def query(self, qstring):
         qstringl = qstring.lower()

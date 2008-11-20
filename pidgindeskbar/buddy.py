@@ -13,49 +13,30 @@ class Buddy(object):
         Creates a pidgin buddy given an xml element
         """
         assert element
-        self.element = element
-        self.buddy = None
+        self.name = element.getElementsByTagName("name")[0].firstChild.data
         self.account_id = None
+        alias = element.getElementsByTagName("alias")
+        if len(alias) > 0:
+            alias_from_xml = alias[0].firstChild.data
+        else:
+            alias_from_xml = None
+        self.alias_from_xml = alias_from_xml
+        self.account = element.getAttribute("account")
+        self.protocol = element.getAttribute("protocol")
+        self.buddy = None
         self._get_buddy()
 
     def _get_buddy(self):
         """
         Returns the buddy id for this buddy
         """
+        assert self.buddy == None
         pidgin = Pidgin.singleton()
         if pidgin:
             self.account_id = pidgin.PurpleAccountsFindAny(self.account, self.protocol)
             self.buddy = pidgin.PurpleFindBuddy(self.account_id, self.name)
         else:
             self.buddy = None
-
-
-    def _get_name(self):
-        """
-        Returns a buddy's name
-        """
-        return self.element.getElementsByTagName("name")[0].firstChild.data
-
-    def _get_alias_from_xml(self):
-        """
-        Returns the alias of this buddy
-        """
-        if self.element.getElementsByTagName("alias") > 0:
-            return self.element.getElementsByTagName("alias")[0].firstChild.data
-        else:
-            return ""
-
-    def _get_account(self):
-        """
-        Returns the account number to reach this buddy
-        """
-        return self.element.getAttribute("account")
-
-    def _get_protocol(self):
-        """
-        Returns the protocol used to reach this buddy
-        """
-        return self.element.getAttribute("protocol")
 
     def _is_online(self):
         """
@@ -85,7 +66,7 @@ class Buddy(object):
             self._get_buddy()
         pidgin = Pidgin.singleton()
         if pidgin == None or self.buddy == None:
-            return self._get_alias_from_xml()
+            return self.alias_from_xml()
         else:
             return pidgin.PurpleBuddyGetAlias(self.buddy)
 
@@ -95,9 +76,6 @@ class Buddy(object):
     def __str__(self):
         return str(unicode(self))
 
-    name = property(_get_name, None)
     alias = property(resolved_alias, None)
-    account = property(_get_account, None)
-    protocol = property(_get_protocol, None)
     is_online = property(_is_online, None)
 
