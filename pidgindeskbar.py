@@ -9,6 +9,7 @@ import xml.dom.minidom
 import deskbar.interfaces.Action
 import deskbar.interfaces.Match
 import deskbar.interfaces.Module
+import deskbar.core.Utils
 import dbus, dbus.exceptions
 import subprocess
 from time import sleep
@@ -241,12 +242,16 @@ class PidginBlistMatch(deskbar.interfaces.Match):
 class PidginBlistModule(deskbar.interfaces.Module):
     "A Module for deskbar to search through pidgin contacts"
 
-    INFO = {'icon':deskbar.core.Utils.load_icon('pidgin'),
+    INFO = {'icon': deskbar.core.Utils.load_icon("pidgin"),
             'name': _("Pidgin Buddy List"),
             'description': _("Start conversations with buddies"),
             'version': "1.0"
             }
-    contacts = []
+
+    def __init__(self):
+        deskbar.interfaces.Module.__init__(self)
+        LOGGER.debug(str(self.INFO))
+        self.contacts = []
 
     def initialize(self):
         """
@@ -269,6 +274,10 @@ class PidginBlistModule(deskbar.interfaces.Module):
                 results += [PidginBlistMatch(contact)]
         self._emit_query_ready(qstring, results)
         return results
+
+    @staticmethod
+    def has_requirements():
+        return False
 
 PURPLE_CONV_TYPE_IM = 1
 PIDGIN = None
