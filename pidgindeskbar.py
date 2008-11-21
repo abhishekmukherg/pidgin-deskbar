@@ -18,6 +18,7 @@ from gettext import gettext as _
 LOGGER = logging.getLogger("Pidgin Deskbar")
 LOGGER_FILE = logging.FileHandler('/tmp/pidgin_deskbar', 'a')
 LOGGER.addHandler(LOGGER_FILE)
+LOGGER.setLevel(logging.DEBUG)
 
 PURPLE_CONV_TYPE_IM = 1
 BUDDY_LIST_FILE = os.path.expanduser(os.path.join('~', '.purple', 'blist.xml'))
@@ -42,7 +43,7 @@ class Buddy(object):
             alias_from_xml = None
         self.alias_from_xml = alias_from_xml
         self.account = element.getAttribute("account")
-        self.protocol = element.getAttribute("protocol")
+        self.protocol = element.getAttribute("proto")
         self.buddy = None
         self._get_buddy()
 
@@ -53,9 +54,14 @@ class Buddy(object):
         assert self.buddy == None
         pidgin = Pidgin.singleton()
         if pidgin:
-            self.account_id = pidgin.PurpleAccountsFindAny(self.account,
-                                                            self.protocol)
-            self.buddy = pidgin.PurpleFindBuddy(self.account_id, self.name)
+            try:
+                self.account_id = pidgin.PurpleAccountsFindAny(self.account,
+                                                                self.protocol)
+                self.buddy = pidgin.PurpleFindBuddy(self.account_id, self.name)
+            except dbus.exceptions.DBusException, exc:
+                LOGGER.exception(exc)
+                Pidgin.invalidate()
+                self._get_buddy()
         else:
             self.buddy = None
 
@@ -70,7 +76,12 @@ class Buddy(object):
                 return False
         pidgin = Pidgin.singleton()
         if pidgin:
-            return pidgin.PurpleBuddyIsOnline(self.buddy) == 1
+            try:
+                return pidgin.PurpleBuddyIsOnline(self.buddy) == 1
+            except dbus.exceptions.DBusException, exc:
+                LOGGER.exception(exc)
+                Pidgin.invalidate()
+                return self._is_online()
         else:
             return False
 
@@ -80,9 +91,14 @@ class Buddy(object):
         forces open a pidgin instance
         """
         pidgin = Pidgin.singleton(True)
-        pidgin.PurpleConversationNew(PURPLE_CONV_TYPE_IM,
-                                    self.account_id,
-                                    self.name)
+        try:
+            pidgin.PurpleConversationNew(PURPLE_CONV_TYPE_IM,
+                                        self.account_id,
+                                        self.name)
+        except dbus.exceptions.DBusException, exc:
+            LOGGER.exception(exc)
+            Pidgin.invalidate()
+            self.open_chat()
 
     def resolved_alias(self):
         """
@@ -94,7 +110,12 @@ class Buddy(object):
         if pidgin == None or self.buddy == None:
             return self.alias_from_xml()
         else:
-            return pidgin.PurpleBuddyGetAlias(self.buddy)
+            try:
+                return pidgin.PurpleBuddyGetAlias(self.buddy)
+            except dbus.exceptions.DBusException, exc:
+                LOGGER.exception(exc)
+                Pidgin.invalidate()
+                self.resolved_alias()
 
     def __unicode__(self):
         return u'<Buddy "%s" on "%s">' % (self.name, self.account)
@@ -129,8 +150,13 @@ class Contact(object):
                 self.buddies[0].buddy):
             pidgin = Pidgin.singleton()
             if pidgin != None:
-                self.contact = pidgin.PurpleBuddyGetContact(
-                        self.buddies[0].buddy)
+                try:
+                    self.contact = pidgin.PurpleBuddyGetContact(
+                            self.buddies[0].buddy)
+                except dbus.exceptions.DBusException, exc:
+                    LOGGER.exception(exc)
+                    Pidgin.invalidate()
+                    self._make_buddies(element)
 
     def __unicode__(self):
         return u'<Contact %s>' % ' '.join((unicode(bud)
@@ -177,11 +203,18 @@ class Contact(object):
         pidgin = Pidgin.singleton()
         if pidgin == None:
             return self.buddies[0].alias
-        if self.contact == None:
-            self.contact = pidgin.PurpleBuddyGetContact(self.buddies[0].buddy)
-            assert self.contact != None, ("Could not get a contact id but"+
-                                          " pidgin is running")
-        return pidgin.PurpleContactGetAlias(self.contact)
+
+        try:
+            if self.contact == None:
+                self.contact = pidgin.PurpleBuddyGetContact(
+                                                    self.buddies[0].buddy)
+                assert self.contact != None, ("Could not get a contact id but"+
+                                              " pidgin is running")
+            return pidgin.PurpleContactGetAlias(self.contact)
+        except dbus.exceptions.DBusException, exc:
+            LOGGER.exception(exc)
+            Pidgin.invalidate()
+            self.alias()
 
 class PidginBlistAction(deskbar.interfaces.Action):
     """
@@ -199,7 +232,8 @@ class PidginBlistAction(deskbar.interfaces.Action):
 
     def get_verb(self):
         "Returns a string for chatting with this buddy"
-        return _("Chat with") + " <b>%(name)s</b> (%(status)s)"
+        return _("Chat with <b>%(name)s</b> on <b>%(screenname)s</b> "
+                                                + "(%(status)s)")
 
     def get_hash(self):
         """
@@ -210,8 +244,13 @@ class PidginBlistAction(deskbar.interfaces.Action):
 
     def get_icon(self):
         "Return the icon of the protocol"
+        # FIXME: Does not currently work
         # TODO: other protocols?
+        LOGGER.debug(u"Getting icon for %s, protocol %s" % (
+                                                unicode(self._buddy),
+                                                unicode(self._buddy.protocol)))
         if self._buddy.protocol == 'prpl-aim':
+            LOGGER.info("Returning im-aim icon for %s" % str(self._buddy))
             return 'im-aim'
         return None
 
@@ -221,7 +260,9 @@ class PidginBlistAction(deskbar.interfaces.Action):
             status = _(u"Online!")
         else:
             status = _(u"Offline")
-        return {'name': self._name, 'status': status}
+        return {'name': self._name,
+                'screenname': self._buddy.name,
+                'status': status}
     # TODO: check if buddy is online
 
 class PidginBlistMatch(deskbar.interfaces.Match):
@@ -265,6 +306,8 @@ class PidginBlistModule(deskbar.interfaces.Module):
 
     def query(self, qstring):
         " Find a buddy matching qstring "
+        import pdb
+        pdb.set_trace()
         qstringl = qstring.lower()
         results = []
         for contact in self.contacts:
@@ -331,3 +374,12 @@ class Pidgin(object):
         """
         LOGGER.debug("Starting pidgin")
         subprocess.Popen(["pidgin"])
+
+    @staticmethod
+    def invalidate():
+        """
+        Invalidates the current pidgin handle
+        """
+        global PIDGIN
+        LOGGER.warn("Invalidating current pidgin")
+        PIDGIN = None
