@@ -240,9 +240,7 @@ class PidginBlistMatch(deskbar.interfaces.Match):
         return self.get_name()
 
 class PidginBlistModule(deskbar.interfaces.Module):
-    "A Module for deskbar to search through pidgin contacts"
-
-    INFO = {'icon': deskbar.core.Utils.load_icon("pidgin"),
+    INFOS = {'icon': deskbar.core.Utils.load_icon("pidgin"),
             'name': _("Pidgin Buddy List"),
             'description': _("Start conversations with buddies"),
             'version': "1.0"
@@ -250,7 +248,7 @@ class PidginBlistModule(deskbar.interfaces.Module):
 
     def __init__(self):
         deskbar.interfaces.Module.__init__(self)
-        LOGGER.debug(str(self.INFO))
+        LOGGER.debug(str(self.INFOS))
         self.contacts = []
 
     def initialize(self):
@@ -277,7 +275,7 @@ class PidginBlistModule(deskbar.interfaces.Module):
 
     @staticmethod
     def has_requirements():
-        return False
+        return True
 
 PURPLE_CONV_TYPE_IM = 1
 PIDGIN = None
